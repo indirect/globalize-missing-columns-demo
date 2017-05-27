@@ -1,0 +1,33 @@
+#!/bin/bash
+echo "Setting up the db..."
+bin/rake db:schema:load db:test:prepare > /dev/null || echo "db setup failed! :("
+
+echo
+echo "Okay, here's the setup: one Post model, one User model. Posts have 'title' and 'body', Users have 'name' and 'job'. Only Post title is translated, only User job is translated."
+echo
+echo "Simply opening a connection to the database (using ActiveRecord::Base.connection) before the Post model has been required breaks ActiveRecord somehow, and translated attributes no longer show up in the attribute list for that model."
+echo
+echo
+echo "In a fresh Rails process, without calling AR::Base.connection first, it works correctly:"
+bin/rails r -e test '
+  puts "Post attributes: " << Post.attribute_names.inspect
+  puts "User attributes: " << User.attribute_names.inspect
+'
+echo
+echo "But! If you first call 'AR::Base.connection', translated attributes are missing:"
+bin/rails r -e test '
+  puts "Calling Base.connection..."; ActiveRecord::Base.connection
+  puts "Post attributes: " << Post.attribute_names.inspect
+  puts "User attributes: " << User.attribute_names.inspect
+'
+echo
+echo "Simply requiring _any_ model file first is enough to stop the problem. In this example, we require the Post model, but not the User model, before calling AR::Base.connection:"
+bin/rails r -e test '
+  puts "Requiring post.rb..."; require "post"
+  puts "Calling Base.connection..."; ActiveRecord::Base.connection
+  puts "Post attributes: " << Post.attribute_names.inspect
+  puts "User attributes: " << User.attribute_names.inspect
+'
+
+echo
+echo "So... any ideas?"
